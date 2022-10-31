@@ -1,218 +1,133 @@
-import numpy as np
+# import numpy as np
 
-def sigmoid(x):
-    return 1/(1+np.exp(-x))
+# def sigmoid(x):
+#     return 1/(1+np.exp(-x))
 
-def sigmoid_derivative(x):
-    return x*(1-x)
+# def sigmoid_derivative(x):
+#     return x*(1-x)
 
-# Author: Issam H. Laradji
-# License: BSD 3 clause
-# generate random floating point values
 from numpy.random import seed
-from numpy.random import rand
 from numpy.random import randint
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.colors import ListedColormap
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.datasets import make_moons, make_circles, make_classification
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import mean_squared_error
+
+#  Random numbers and function definition
 seed(1)
 size = 2000
-X = rand(size)
-X = (X) * 10000
-# X = randint(1, 100_000, size)
-y = 1 / X
+title = "MLP regression for exp(-x) using tanh activaion"
+X = np.random.uniform(1, 10, size)  # make numbers from 0 to 1
+y = np.exp(-X)
+
 # split into training and test part
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+nodes = [2, 3, 4, 5, 7, 10, 15, 20, 30, 50, 100]
+states = randint(1, 10000, size = 5)
 
-layers = [2, 3, 4, 5, 7, 10, 15, 20, 30, 50, 100]
-
+# Set up classifier
 classifiers = []
 names = []
-for layer in layers:
-    classifiers.append(
-        make_pipeline(
-            StandardScaler(),
-            MLPRegressor(
-                solver="sgd",
-				activation = "logistic",
-				# activation = "tanh",
-				learning_rate = "adaptive",
-				learning_rate_init = 0.3,
-				momentum=0.7,
-                random_state=1,
-                max_iter=10000,
-                early_stopping=True,
-                hidden_layer_sizes=layer
-            ),
-        )
-    )
-    names.append(f"layers {layer:.0f}")
+trials = []
+for node in nodes:
+	for state in states:
+		classifiers.append(
+			make_pipeline(
+				StandardScaler(),
+				MLPRegressor(
+					solver="sgd",
+					shuffle=True,
+					# activation = "logistic",
+					activation = "tanh",
+					# learning_rate = "adaptive",
+					learning_rate_init = 0.3,
+					momentum=0.7,
+					random_state=state,
+					max_iter=10000,
+					# early_stopping=True,
+					hidden_layer_sizes=[node]
+				),
+			)
+		)
+		trials.append(f"node {node} trial {state}")
+		names.append(f"{node:.0f} nodes")
 
 X_train_2d = X_train.reshape(-1, 1)
 X_test_2d = X_test.reshape(-1, 1)
-for name, clf in zip(names, classifiers):
-		clf.fit(X_train_2d, y_train)
-		score = clf.score(X_train_2d, y_train)
-		print(f"training {name} score: {score:.2f}")
-		y_pred = clf.predict(X_test_2d)
-		mse = mean_squared_error(y_test, y_pred)
-		print(f"\t\ttesting {name} MSE: {mse:.2f}")
-		score = clf.score(X_test_2d, y_test)
-		print(f"\t\ttesting {name} score: {score:.2f}")
 
-# from sklearn.neural_network import MLPRegressor
-# from sklearn.datasets import make_regression
-# from sklearn.model_selection import train_test_split
-# X, y = make_regression(n_samples=3, random_state=1)
-# print(X)
-# X_train, X_test, y_train, y_test = train_test_split(X, y,
-#                                                     random_state=1)
-# regr = MLPRegressor(random_state=1, max_iter=500).fit(X_train, y_train)
-# regr.predict(X_test[:2])
+# set up data analysis
+i = 0;
+k = 0
+mse_training = np.zeros(len(states))
+mse_testing = np.zeros(len(states))
+score_training = np.zeros(len(states))
+score_testing = np.zeros(len(states))
+mean_mse_training = np.zeros(len(nodes))
+mean_mse_testing = np.zeros(len(nodes))
+mean_score_training = np.zeros(len(nodes))
+mean_score_testing = np.zeros(len(nodes))
+for trial, name, clf in zip(trials, names, classifiers):
+	# Train
+	clf.fit(X_train_2d, y_train)
+	# training data
+	y_pred = clf.predict(X_train_2d)
+	mse_training[i] = mean_squared_error(y_train, y_pred)
+	score_training[i] = clf.score(X_train_2d, y_train)
+	# testsing data
+	y_pred = clf.predict(X_test_2d)
+	mse_testing[i] =  mean_squared_error(y_test, y_pred)
+	score_testing[i] = clf.score(X_test_2d, y_test)
+	# print results
+	if ((i + 1) % len(states) == 0):
+		print(f"{name}")
+		print(f"\t training \n\t\t MSE: {np.around(mse_training, decimals=4)} \n\t\t score: {np.around(score_training, decimals=4)}")
+		print(f"\t testing \n\t\t MSE: {np.around(mse_testing, decimals=4)} \n\t\t score: {np.around(score_testing, decimals=4)}")
+		# Record means
+		mean_mse_training[k] = np.mean(mse_training)
+		mean_score_training[k] = np.mean(score_training)
+		mean_mse_testing[k] = np.mean(mse_testing);
+		mean_score_testing[k] = np.mean(score_testing)
+		k += 1
+	i = (i + 1) % len(states)
 
-# regr.score(X_test, y_test)
-# print(regr.score(X_test, y_test))
+#  Tabulate results
+print("\nTotal Tally for each number of nodes")
+from astropy.table import Table
+from tabulate import tabulate
+col0 = nodes
+col1 = np.around(mean_mse_training, decimals=4)
+col2 = np.around(mean_score_training, decimals=4)
+col3 = np.around(mean_mse_testing, decimals=4)
+col4 = np.around(mean_score_testing, decimals=4)
+t = Table([col0, col1, col2, col3, col4])
+print(tabulate(t, headers=('Nodes', 'Training MSE', 'Training Score', 'Testing MSE', 'Testing Score'), tablefmt='fancy_grid'))
 
-#         # Plot the decision boundary. For that, we will assign a color to each
-#         # point in the mesh [x_min, x_max] x [y_min, y_max].
-#         if hasattr(clf, "decision_function"):
-#             Z = clf.decision_function(np.column_stack([xx.ravel(), yy.ravel()]))
-#         else:
-#             Z = clf.predict_proba(np.column_stack([xx.ravel(), yy.ravel()]))[:, 1]
+#  Write inf to text file
+# f = open("MLPtables.txt", "a")
+# f.write("\n\n" + title + "\n")
+# f.write(tabulate(t, headers=('N', 'Train MSE', 'Train Score', 'Test MSE', 'Test Score'), tablefmt='fancy_grid'))
+# f.close()
 
-#         # Put the result into a color plot
-#         Z = Z.reshape(xx.shape)
-#         ax.contourf(xx, yy, Z, cmap=cm, alpha=0.8)
+#  plot Results
+fig, (ax1, ax2) = plt.subplots(2)
+ax1.plot(nodes, col1, '-o', label='Training MSE')
+ax2.plot(nodes, col2, '-o', label='Training Score')
+ax1.plot(nodes, col3, '-o', label='Testing MSE')
+ax2.plot(nodes, col4, '-o', label='Testing Score')
+ax1.set_title("Training MSE vs. Testing MSE")
+ax2.set_title("Training Score vs. Testing Score")
+ax1.set_xscale('log', base = 2)
+ax2.set_xscale('log', base = 2)
+ax1.legend()
+ax2.legend()
+ax1.set_ylabel('Mean Square Error')
+ax2.set_ylabel('Score')
+ax1.set_xlabel('Number of Nodes')
+ax2.set_xlabel('Number of Nodes')
+fig.suptitle(title)
+fig.tight_layout()
 
-#         # Plot also the training points
-#         ax.scatter(
-#             X_train[:, 0],
-#             X_train[:, 1],
-#             c=y_train,
-#             cmap=cm_bright,
-#             edgecolors="black",
-#             s=25,
-#         )
-#         # and testing points
-#         ax.scatter(
-#             X_test[:, 0],
-#             X_test[:, 1],
-#             c=y_test,
-#             cmap=cm_bright,
-#             alpha=0.6,
-#             edgecolors="black",
-#             s=25,
-#         )
-
-#         ax.set_xlim(xx.min(), xx.max())
-#         ax.set_ylim(yy.min(), yy.max())
-#         ax.set_xticks(())
-#         ax.set_yticks(())
-#         ax.set_title(name)
-#         ax.text(
-#             xx.max() - 0.3,
-#             yy.min() + 0.3,
-#             f"{score:.3f}".lstrip("0"),
-#             size=15,
-#             horizontalalignment="right",
-#         )
-#         i += 1
-# X, y = make_classification(
-#     n_features=2, n_redundant=0, n_informative=2, random_state=0, n_clusters_per_class=1
-# )
-# rng = np.random.RandomState(2)
-# X += 2 * rng.uniform(size=X.shape)
-# linearly_separable = (X, y)
-
-# datasets = [
-#     make_moons(noise=0.3, random_state=0),
-#     make_circles(noise=0.2, factor=0.5, random_state=1),
-#     linearly_separable,
-# ]
-
-# figure = plt.figure(figsize=(17, 9))
-# i = 1
-# # iterate over datasets
-# for X, y in datasets:
-#     # split into training and test part
-#     X_train, X_test, y_train, y_test = train_test_split(
-#         X, y, test_size=0.4, random_state=42
-#     )
-
-#     x_min, x_max = X[:, 0].min() - 0.5, X[:, 0].max() + 0.5
-#     y_min, y_max = X[:, 1].min() - 0.5, X[:, 1].max() + 0.5
-#     xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-
-#     # just plot the dataset first
-#     cm = plt.cm.RdBu
-#     cm_bright = ListedColormap(["#FF0000", "#0000FF"])
-#     ax = plt.subplot(len(datasets), len(classifiers) + 1, i)
-#     # Plot the training points
-#     ax.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap=cm_bright)
-#     # and testing points
-#     ax.scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm_bright, alpha=0.6)
-#     ax.set_xlim(xx.min(), xx.max())
-#     ax.set_ylim(yy.min(), yy.max())
-#     ax.set_xticks(())
-#     ax.set_yticks(())
-#     i += 1
-
-#     # iterate over classifiers
-#     for name, clf in zip(names, classifiers):
-#         ax = plt.subplot(len(datasets), len(classifiers) + 1, i)
-#         clf.fit(X_train, y_train)
-#         score = clf.score(X_test, y_test)
-
-#         # Plot the decision boundary. For that, we will assign a color to each
-#         # point in the mesh [x_min, x_max] x [y_min, y_max].
-#         if hasattr(clf, "decision_function"):
-#             Z = clf.decision_function(np.column_stack([xx.ravel(), yy.ravel()]))
-#         else:
-#             Z = clf.predict_proba(np.column_stack([xx.ravel(), yy.ravel()]))[:, 1]
-
-#         # Put the result into a color plot
-#         Z = Z.reshape(xx.shape)
-#         ax.contourf(xx, yy, Z, cmap=cm, alpha=0.8)
-
-#         # Plot also the training points
-#         ax.scatter(
-#             X_train[:, 0],
-#             X_train[:, 1],
-#             c=y_train,
-#             cmap=cm_bright,
-#             edgecolors="black",
-#             s=25,
-#         )
-#         # and testing points
-#         ax.scatter(
-#             X_test[:, 0],
-#             X_test[:, 1],
-#             c=y_test,
-#             cmap=cm_bright,
-#             alpha=0.6,
-#             edgecolors="black",
-#             s=25,
-#         )
-
-#         ax.set_xlim(xx.min(), xx.max())
-#         ax.set_ylim(yy.min(), yy.max())
-#         ax.set_xticks(())
-#         ax.set_yticks(())
-#         ax.set_title(name)
-#         ax.text(
-#             xx.max() - 0.3,
-#             yy.min() + 0.3,
-#             f"{score:.3f}".lstrip("0"),
-#             size=15,
-#             horizontalalignment="right",
-#         )
-#         i += 1
-
-# figure.subplots_adjust(left=0.02, right=0.98)
-# plt.show()
+plt.show()
