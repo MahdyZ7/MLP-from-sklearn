@@ -2,4 +2,4 @@
 
 play on replit :
 
-[![Run on Replit.com](https://replit.com/badge/github/MahdyZ7/MLP-from-sklearn)](https://replit.com/@MahdyZ7/MLP-from-sklearn)
+[![Run on Replit.com](https://replit.com/badge/github/MahdyZ7/MLP-from-sklearn)](https://replit.com/@MahdyZ7/MLP-from-sklearn?embed=1&output=1)
